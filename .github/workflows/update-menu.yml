@@ -2,9 +2,13 @@ name: Update Lunch Menu
 
 on:
   schedule:
-    # Runs 6:00am and 1:00pm Central (11:00 and 18:00 UTC) every day
-    - cron: '0 11 * * *'
-    - cron: '0 18 * * *'
+    # Runs once, ~1:00am Central (1am CDT / midnight CST - GitHub cron
+    # doesn't shift for DST, but this lands after local midnight either
+    # way so "today" always resolves to the correct upcoming day).
+    # GitHub Actions scheduled runs can be delayed by GitHub's queue
+    # (observed up to ~4 hours on this repo), so this is scheduled with
+    # plenty of buffer ahead of the 7am Central viewing window.
+    - cron: '10 6 * * *'
   workflow_dispatch: {}
 
 permissions:
