@@ -1,5 +1,15 @@
 from datetime import date, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from fetch_menu import build_week_data, get_monday
+
+CENTRAL = ZoneInfo("America/Chicago")
+
+def today_central():
+    """GitHub Actions runners are UTC -- always compute 'today' explicitly
+    in Central time so the highlighted day and week rollover are correct
+    regardless of when in the UTC day the job runs."""
+    return datetime.now(CENTRAL).date()
 
 # --- Design tokens -----------------------------------------------------
 # Palette: bright, candy-ish, but kept to a tight set so it doesn't turn
@@ -226,7 +236,7 @@ def render_day(day, today, colors):
     )
 
 def generate(output_path="index.html"):
-    today = date.today()
+    today = today_central()
     monday = get_monday(today)
     # If it's the weekend, show next week instead of a stale past week
     if today.weekday() >= 5:
