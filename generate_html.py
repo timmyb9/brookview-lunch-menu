@@ -147,6 +147,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     font-weight: 700;
     opacity: 0.9;
   }}
+  .cold-entree {{
+    background: rgba(255,255,255,0.35);
+    border: 1.5px solid rgba(0,0,0,0.15);
+    border-radius: 12px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+  }}
+  .cold-entree .entree-label {{
+    opacity: 0.55;
+  }}
+  .cold-entree .entree-name {{
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.7;
+  }}
   .side-row {{
     font-size: 12px;
     font-weight: 700;
@@ -202,7 +217,7 @@ def render_day(day, today, colors):
     is_today = day["date"] == today
     c = colors[day["label"]]
 
-    if not day["main_entrees"] and not day["kydzable_entrees"] and not day["categories"]:
+    if not day["main_entrees"] and not day["kydzable_entrees"] and not day["cold_entrees"] and not day["categories"]:
         content = '<div class="no-menu">No menu yet</div>'
     else:
         parts = []
@@ -214,6 +229,11 @@ def render_day(day, today, colors):
         for entree in day["kydzable_entrees"]:
             parts.append(
                 f'<div class="kydzable"><div class="entree-label">\u2b50 Kydzable</div>'
+                f'<div class="entree-name">{entree}</div></div>'
+            )
+        for entree in day["cold_entrees"]:
+            parts.append(
+                f'<div class="cold-entree"><div class="entree-label">Cold Entree</div>'
                 f'<div class="entree-name">{entree}</div></div>'
             )
         for cat, items in day["categories"].items():
