@@ -1,6 +1,7 @@
 import requests
 import json
 from datetime import date, timedelta
+import re
 
 SCHOOL_ID = "78d53de7-47aa-4048-9069-6652df5e3549"  # Brookview Elementary, Waukee CSD
 SERVING_LINE = "ELEM LUNCH"
@@ -35,11 +36,22 @@ CATEGORY_LABELS = {
 # Categories we never want to show on the board
 EXCLUDED_CATEGORIES = {"DAIRY", "CONDIMENTS"}
 
-# Items offered essentially every day that aren't worth calling out daily.
-# Matched as a case-insensitive substring, so close variants still get caught.
+# Sunbutter is a standing daily backup — never worth calling out.
 EXCLUDED_ITEMS = [
     "sunbutter sandwich entree",
 ]
+
+# Items that SchoolCafe's feed sometimes mislabels "Kydzable" but are
+# really just the standing daily "Cold Entree Option" per the district's
+# own printed menu (only Tue/Wed that week were genuinely Kydzable-branded).
+# Matched as a case-insensitive substring. Grow this list as new standing
+# items are spotted in future weeks.
+COLD_ENTREE_ITEMS = [
+    "hardboiled egg, cheese stick, & muffin top variety",
+    "italian deli sub sandwich",
+]
+
+KYDZABLE_PREFIX_RE = re.compile(r"^kydzable entree\s*w/\s*", re.IGNORECASE)
 
 def clean_items(items):
     names = []
@@ -52,21 +64,22 @@ def clean_items(items):
         names.append(desc)
     return names
 
-import re
-
-KYDZABLE_PREFIX_RE = re.compile(r"^kydzable entree\s*w/\s*", re.IGNORECASE)
-
 def split_entrees(items):
-    """Separate the daily 'Kydzable' option from the main rotating entree(s).
-    The 'Kydzable Entree w/' prefix is stripped since it's already called
-    out by the section heading."""
-    kydzable, main = [], []
+    """Split into three groups: the main rotating hot lunch entree(s),
+    genuine daily Kydzable specials, and the standing 'Cold Entree
+    Option' (same item most days, occasionally mislabeled 'Kydzable' by
+    the feed). The 'Kydzable Entree w/' prefix is stripped from Kydzable
+    items since it's already called out by the section heading."""
+    kydzable, cold, main = [], [], []
     for i in items:
-        if "kydzable" in i.lower():
-            kydzable.append(KYDZABLE_PREFIX_RE.sub("", i).strip())
+        stripped = KYDZABLE_PREFIX_RE.sub("", i).strip()
+        if any(ce in i.lower() for ce in COLD_ENTREE_ITEMS):
+            cold.append(stripped)
+        elif "kydzable" in i.lower():
+            kydzable.append(stripped)
         else:
             main.append(i)
-    return main, kydzable
+    return main, kydzable, cold
 
 def build_week_data(monday):
     raw = fetch_week(monday)
@@ -90,7 +103,7 @@ def build_week_data(monday):
                 except ValueError:
                     pass
         categories = {}
-        main_entrees, kydzable_entrees = [], []
+        main_entrees, kydzable_entrees, cold_entrees = [], [], []
         if day_json:
             for cat in CATEGORY_ORDER:
                 if cat in EXCLUDED_CATEGORIES:
@@ -99,7 +112,7 @@ def build_week_data(monday):
                 if not items:
                     continue
                 if cat == "ENTREES":
-                    main_entrees, kydzable_entrees = split_entrees(items)
+                    main_entrees, kydzable_entrees, cold_entrees = split_entrees(items)
                 else:
                     categories[CATEGORY_LABELS[cat]] = items
         days.append({
@@ -108,6 +121,7 @@ def build_week_data(monday):
             "date_str": d.strftime("%b %-d"),
             "main_entrees": main_entrees,
             "kydzable_entrees": kydzable_entrees,
+            "cold_entrees": cold_entrees,
             "categories": categories,
         })
     return days
@@ -118,5 +132,7 @@ if __name__ == "__main__":
     data = build_week_data(monday)
     for day in data:
         print(day["label"], day["date_str"])
+        print("  entrees:", day["main_entrees"])
+        print("  kydzable:", day["kydzable_entrees"])
         for cat, items in day["categories"].items():
             print("  ", cat, "->", items)
